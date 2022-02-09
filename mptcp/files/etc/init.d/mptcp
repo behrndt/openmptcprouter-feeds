@@ -291,19 +291,22 @@ interface_multipath_settings() {
 			network6=`ipcalc $ip6addr | sed -n '/NETWORK=/{;s/.*=//;s/ .*//;p;}'`
 		fi
 		if [ -z "$ip6addr" ] || [ -z "$network6" ]; then
-			ip6addr=$(ip -6 addr show dev $iface | grep -v 'scope link' | grep inet6 | awk '{print $2}' | cut -d/ -f1 | tr -d "\n")
-			gateway6=$(ip -6 r list dev $iface | grep -v default | awk '/proto static/ {print $1}' | tr -d "\n")
-			[ -z "$gateway6" ] && gateway6=$(uci -q get "network.$config.ip6gw")
-			[ -z "$gateway6" ] && gateway6=$(ubus call network.interface.$config status | jsonfilter -q -l 1 -e '@.inactive.route[@.target="::"].nexthop' | tr -d "\n")
-			if [ -z "$gateway6" ] || [ "$( valid_subnet6 $gateway6 )" != "ok" ]; then 
-				gateway6=$(ubus call network.interface.$config status | jsonfilter -q -l 1 -e '@.route[@.target="::"].nexthop' | tr -d "\n")
-			fi
-			if [ -z "$gateway6" ] || [ "$( valid_subnet6 $gateway6 )" != "ok" ]; then
-				gateway6=$(ubus call network.interface.${config}_6 status 2>/dev/null | jsonfilter -q -l 1 -e '@.inactive.route[@.target="::"].nexthop' | tr -d "\n")
-			fi
-			netmask6=$(ip -6 addr show dev $iface | grep -v 'scope link' | grep inet6 | awk '{print $2}' | cut -d/ -f2 | tr -d "\n")
-			network6=`ipcalc $ip6addr | sed -n '/NETWORK=/{;s/.*=//;s/ .*//;p;}'`
-		fi
+			ip6addr=$(ip -json -6 addr show dev $iface scope global up -deprecated | jsonfilter -q -l 1 -e '@[0].addr_info[@.family="inet6"].local')
+        	        if [ -n "$ip6addr" ]; then
+                	        netmask6=$(ip -json -6 addr show dev $iface scope global up -deprecated | jsonfilter -q -l 1 -e '@[0].addr_info[@.family="inet6"].prefixlen')
+                        	if [ -n "$ip6addr" ] && [ -n "$netmask6" ]; then
+                                	ipaddr6=$ip6addr/$netmask6
+	                        fi
+        	                if [ -n "$ipaddr6" ]; then
+                	                network6=`ipcalc -n $ipaddr6 | sed -n '/NETWORK=/{;s/.*=//;s/ .*//;p;}'`
+                        	fi
+	                        [ -z "$gateway6" ] && gateway6=$(ubus call network.interface.$config status | jsonfilter -q -l 1 -e '@.inactive.route[@.target="::"].nexthop' | tr -d "\n")
+	                        [ -z "$gateway6" ] && gateway6=$(ubus call network.interface.$config status | jsonfilter -q -l 1 -e '@.route[@.target="::"].nexthop' | tr -d "\n")
+	                        [ -z "$gateway6" ] && gateway6=$(ubus call network.interface.${config}_6 status 2>/dev/null | jsonfilter -q -l 1 -e '@.inactive.route[@.target="::"].nexthop' | tr -d "\n")
+	                        [ -z "$gateway6" ] && gateway6=$(ubus call network.interface.${config}_6 status 2>/dev/null | jsonfilter -q -l 1 -e '@.route[@.target="::"].nexthop' | tr -d "\n")
+	                fi
+                fi
+
 		if [ "$(uci -q get openmptcprouter.settings.uci_route)" = "1" ]; then
 			uci -q batch <<-EOF >/dev/null
 				delete network.${config}_rule6
