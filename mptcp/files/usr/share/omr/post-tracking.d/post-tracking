@@ -98,7 +98,7 @@ set_route6() {
 		if [ "$interface_gw" != "" ] && [ "$interface_if" != "" ] && [ -n "$(echo $interface_gw | grep ':')" ]; then
 			[ "$(uci -q get openmptcprouter.settings.debug)" = "true" ] && _log "$PREVINTERFACE down. Replace default route by $interface_gw dev $interface_if"
 			[ "$SETDEFAULT" = "yes" ] && ip -6 route replace default scope global nexthop via $interface_gw dev $interface_if 2>&1 >/dev/null
-			ip -6 route replace default via $interface_gw dev $interface_if table 991337 2>&1 >/dev/null && SETROUTE=true
+			ip -6 route replace default via $interface_gw dev $interface_if table 6991337 2>&1 >/dev/null && SETROUTE=true
 		fi
 	fi
 }
@@ -1040,8 +1040,8 @@ if [ "$multipath_config" = "master" ]; then
 	if [ -n "$OMR_TRACKER_DEVICE_GATEWAY" ] && [ -n "$OMR_TRACKER_DEVICE" ] && [ "$(ip r show table 991337)" != "default via $OMR_TRACKER_DEVICE_GATEWAY dev $OMR_TRACKER_DEVICE " ]; then
 		ip route replace default via $OMR_TRACKER_DEVICE_GATEWAY dev $OMR_TRACKER_DEVICE table 991337 2>&1 >/dev/null
 	fi
-	if [ -n "$OMR_TRACKER_DEVICE_GATEWAY6" ] && [ -n "$OMR_TRACKER_DEVICE" ] && [ "$(ip -6 r show table 991337)" != "default via $OMR_TRACKER_DEVICE_GATEWAY6 dev $OMR_TRACKER_DEVICE " ]; then
-		ip -6 route replace default via $OMR_TRACKER_DEVICE_GATEWAY6 dev $OMR_TRACKER_DEVICE table 991337 2>&1 >/dev/null
+	if [ -n "$OMR_TRACKER_DEVICE_GATEWAY6" ] && [ -n "$OMR_TRACKER_DEVICE" ] && [ "$(ip -6 r show table 6991337)" != "default via $OMR_TRACKER_DEVICE_GATEWAY6 dev $OMR_TRACKER_DEVICE " ]; then
+		ip -6 route replace default via $OMR_TRACKER_DEVICE_GATEWAY6 dev $OMR_TRACKER_DEVICE table 6991337 2>&1 >/dev/null
 	fi
 	if [ "$(uci -q get openmptcprouter.$OMR_TRACKER_INTERFACE.lc)" = "" ] || [ $(($(date +"%s") + $((10 + RANDOM % 31)) - $(uci -q get openmptcprouter.$OMR_TRACKER_INTERFACE.lc))) -gt 3600 ] || [ "$(uci -q show openmptcprouter | grep get_config=\'1\')" != "" ] || [ "$(uci -q show openmptcprouter | grep admin_error=\'1\')" != "" ]; then
 		[ "$(pgrep openmptcprouter-vps)" = "" ] && /etc/init.d/openmptcprouter-vps restart >/dev/null 2>&1
@@ -1223,7 +1223,7 @@ if [ "$(uci -q get openmptcprouter.$OMR_TRACKER_INTERFACE.lc)" = "" ] || [ $(($(
 		if [ -n "$lanip" ] && [ -n "$masterip" ] && [ -n "$ipaddr" ] && [ "$ipaddr" = "$masterip" ] && [ "$(uci -q get openmptcprouter.settings.disableloopdetection)" != "1" ]; then
 			loop=0
 			routingloop() {
-				vpsip="$(uci -q get openmptcprouter.$1.ip)"
+				vpsip="$(uci -q get openmptcprouter.$1.ip | awk '{print $1}')"
 				if [ -n "$vpsip" ] && [ "$(omr-routing-loop $vpsip $lanip $OMR_TRACKER_DEVICE)" = "detected" ]; then
 					loop=1
 				fi
