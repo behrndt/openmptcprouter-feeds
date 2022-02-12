@@ -523,25 +523,25 @@ _intf_rule() {
 		create omr_dst_bypass_$intf hash:net hashsize 64
 		create omr6_dst_bypass_$intf hash:net family inet6 hashsize 64
 		EOF
-		if [ "$(uci -q get openmptcprouter.settings.uci_rules)" = "1" ]; then
-			uci -q batch <<-EOF >/dev/null
-				delete network.${1}_fw_rule=rule
-				set network.${1}_fw_rule=rule
-				set network.${1}_fw_rule.priority=1
-				set network.${1}_fw_rule.mark=0x539${count}
-				set network.${1}_fw_rule.lookup=${count}
-				delete network.${1}_fw_rule6=rule6
-				set network.${1}_fw_rule6=rule6
-				set network.${1}_fw_rule6.priority=1
-				set network.${1}_fw_rule6.mark=0x6539${count}
-				set network.${1}_fw_rule6.lookup=${count}
-				commit network
-			EOF
-		else
-			ip rule add prio 1 fwmark 0x539$count lookup $count pref 1 > /dev/null 2>&1
-			ip -6 rule add prio 1 fwmark 0x6539$count lookup 6$count pref 1 > /dev/null 2>&1
-		fi
 	}
+	if [ "$(uci -q get openmptcprouter.settings.uci_rules)" = "1" ]; then
+		uci -q batch <<-EOF >/dev/null
+			delete network.${1}_fw_rule=rule
+			set network.${1}_fw_rule=rule
+			set network.${1}_fw_rule.priority=1
+			set network.${1}_fw_rule.mark=0x539${count}
+			set network.${1}_fw_rule.lookup=${count}
+			delete network.${1}_fw_rule6=rule6
+			set network.${1}_fw_rule6=rule6
+			set network.${1}_fw_rule6.priority=1
+			set network.${1}_fw_rule6.mark=0x6539${count}
+			set network.${1}_fw_rule6.lookup=${count}
+			commit network
+		EOF
+	else
+		[ -z "$(ip rule | grep 'fwmark 0x539$count lookup $count')" ] && ip rule add prio 1 fwmark 0x539$count lookup $count pref 1 > /dev/null 2>&1
+		[ -z "$(ip -6 rule | grep 'fwmark 0x6539$count lookup 6$count')" ] && ip -6 rule add prio 1 fwmark 0x6539$count lookup 6$count pref 1 > /dev/null 2>&1
+	fi
 	if [ "$(iptables-save | grep omr-bypass | grep omr_dst_bypass_$intf)" = "" ]; then
 		iptables-restore -w --wait=60 --noflush <<-EOF
 		*mangle
@@ -717,6 +717,7 @@ start_service() {
 		*mangle
 		:omr-bypass6 -
 		-I PREROUTING -m addrtype ! --dst-type LOCAL -j omr-bypass6
+		-I OUTPUT -m addrtype ! --dst-type LOCAL -j omr-bypass6
 		COMMIT
 		EOF
 	fi
